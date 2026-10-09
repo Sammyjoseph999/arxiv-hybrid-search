@@ -1,0 +1,6 @@
+# What the test suite needs. Tests use hand-made vectors, so no models or databases are required.
+numpy>=1.26
+pandas>=2.2
+pytest>=8.0
+rank-bm25>=0.2.2
+requests>=2.31
