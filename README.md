@@ -94,3 +94,7 @@ One embedding model and one corpus. Queries are derived from titles, which are w
 ## Data
 
 Paper metadata comes from the [arXiv API](https://info.arxiv.org/help/api/index.html). Thank you to arXiv for use of its open access interoperability.
+
+## License
+
+The code is released under the [MIT License](LICENSE). Datasets keep the terms of their original sources, described above.
