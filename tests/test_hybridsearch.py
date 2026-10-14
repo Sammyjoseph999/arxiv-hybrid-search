@@ -98,3 +98,26 @@ def test_exact_backend_applies_filters_before_ranking():
     assert backend.search(query, k=2) == [0, 1]
     assert backend.search(query, k=2, category="y") == [1, 3]
     assert backend.search(query, k=5, category="x", date_from=20260201) == [2]
+
+
+def test_rerank_scores_reorders_only_the_candidates():
+    from hybridsearch.rerank import rerank_scores
+    scores = np.array([0.9, 0.8, 0.7, 0.1, 0.05], dtype="float32")
+    out = rerank_scores(scores, np.array([0, 1, 2]), [0.1, 0.2, 3.0])
+    assert list(np.argsort(-out)) == [2, 1, 0, 3, 4]
+    assert rank_of(out, 2) == 1 and rank_of(out, 3) == 4
+
+
+def test_cross_encoder_reranker_uses_the_model_on_the_top_candidates():
+    from hybridsearch.rerank import CrossEncoderReranker
+
+    class FakeModel:
+        def predict(self, pairs, **kwargs):
+            self.pairs = pairs
+            return np.array([doc.count("transformers") for _, doc in pairs], dtype="float32")
+
+    model = FakeModel()
+    reranker = CrossEncoderReranker(DOCS, model=model, depth=2)
+    out = reranker.rerank("query", np.array([0.1, 0.9, 0.2, 0.8], dtype="float32"))
+    assert [doc for _, doc in model.pairs] == [DOCS[1], DOCS[3]]
+    assert int(np.argmax(out)) == 3   # the candidate the model prefers moves to the top

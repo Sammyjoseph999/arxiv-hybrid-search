@@ -19,6 +19,17 @@ The query is a paper's title; a hit means that paper's abstract is ranked first 
 | Hybrid: reciprocal rank fusion | 92.0% | 55.4% |
 | Hybrid: weighted fusion, tuned | 95.8% | 67.2% |
 
+### Adding a reranker
+
+A second stage rescores the weighted hybrid's top 20 with a cross-encoder (`ms-marco-MiniLM-L-6-v2`), which reads the query and each abstract together.
+
+| Query | Hybrid, ranked first | Hybrid + reranker, ranked first | Time per query |
+|---|---|---|---|
+| Full title | 95.8% | 95.8% | 58 ms |
+| First four words | 67.2% | **72.6%** | 57 ms |
+
+It helps exactly where the first stage is weakest, short queries, and costs about a thousand times more than the search itself. On topical search it is slightly worse (69.3% against 70.1% in the next table): the model was trained to judge whether a passage answers a question, not whether two papers share a subject.
+
 ### Finding papers on a subject
 
 Share of the top ten results in the same arXiv category as the query paper:
@@ -34,6 +45,7 @@ Share of the top ten results in the same arXiv category as the query paper:
 
 - **For a known item, keywords win; for a topic, vectors win.** Neither retriever is better in general.
 - **Hybrid is not automatically better.** Reciprocal rank fusion was worse than plain BM25 on known-item search, because it gives the weaker retriever an equal vote. Weighted fusion beat both single retrievers there by a point or two, but only after its weight was tuned on separate queries.
+- **A reranker is a targeted fix, not a free upgrade.** It added five points on short queries, nothing on full titles, and lost a little on topical search.
 - **The two retrievers miss different things.** On short queries, keyword search found 114 papers in its top ten that vector search missed, and vector search found 22 that keywords missed.
 
 <img src="images/alpha_sweep.png" alt="Search quality as the blend moves from keywords to vectors" width="620">
@@ -44,10 +56,10 @@ Median time for a top-ten vector query over 5,000 papers, on a laptop:
 
 | Filter | NumPy (exact) | ChromaDB (HNSW) | Qdrant (local mode) |
 |---|---|---|---|
-| None | 0.06 ms | 0.45 ms | 1.1 ms |
-| Category | 0.06 ms | 2.2 ms | 14 ms |
-| Date | 0.05 ms | 3.0 ms | 14 ms |
-| Category + date | 0.06 ms | 2.7 ms | 16 ms |
+| None | 0.05 ms | 0.47 ms | 1.2 ms |
+| Category | 0.06 ms | 2.3 ms | 15 ms |
+| Date | 0.04 ms | 3.3 ms | 15 ms |
+| Category + date | 0.05 ms | 2.9 ms | 17 ms |
 
 - Filters make ChromaDB's queries several times slower and Qdrant's local mode about twelve times slower. Both still return the same results as exact search (99.6% agreement or better).
 - At this size, exact search with a boolean mask is the fastest option by a wide margin. An approximate index has nothing to speed up at 5,000 vectors.
@@ -61,6 +73,7 @@ The practical conclusion: measure the simple version first. A vector database, a
 |---|---|
 | `hybridsearch/fetch.py` | Downloads paper metadata from the public arXiv API |
 | `hybridsearch/retrievers.py` | BM25, cosine search, weighted fusion and reciprocal rank fusion |
+| `hybridsearch/rerank.py` | Second-stage reranking of the top candidates with a cross-encoder |
 | `hybridsearch/evaluate.py` | Rank, recall@k, MRR and category precision |
 | `hybridsearch/backends.py` | The same filtered search on NumPy, ChromaDB and Qdrant, with timing |
 | `notebook.ipynb` | The experiments and results |
